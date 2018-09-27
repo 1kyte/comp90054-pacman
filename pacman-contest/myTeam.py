@@ -21,6 +21,8 @@ import game
 # Team creation #
 #################
 
+# test
+
 def createTeam(firstIndex, secondIndex, isRed,
                first = 'Attacker', second = 'Defender'):
   """
