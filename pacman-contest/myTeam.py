@@ -47,17 +47,34 @@ def createTeam(firstIndex, secondIndex, isRed,
 class Actions():
 
   def getSuccessor(self, gameState, action):
+      successor = gameState.generateSuccessor(self.index, action)
+      pos = successor.getAgentState(self.index).getPosition()
+      if pos != nearestPoint(pos):
+          # Only half a grid position was covered
+          return successor.generateSuccessor(self.index, action)
+      else:
+          return successor
 
-    return
+  def evaluate(self, gameState, action):
+      features = self.getFeatures(gameState, action)
+      weights = self.getWeights(gameState, action)
+      return features * weights
 
-  def evaluate(self):
-    return
+  def getFeatures(self, gameState, action):
+    """
+    Returns a counter of features for the state
+    """
+    features = util.Counter()
+    successor = self.getSuccessor(gameState, action)
+    features['successorScore'] = self.getScore(successor)
+    return features
 
-  def getFeatures(self):
-    return
-
-  def getWeights(self):
-    return
+  def getWeights(self, gameState, action):
+    """
+    Normally, weights do not depend on the gamestate.  They can be either
+    a counter or a dictionary.
+    """
+    return {'successorScore': 1.0}
 
 class getOffensiveActions(Actions):
   def __init__(self):
