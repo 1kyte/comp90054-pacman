@@ -13,7 +13,7 @@
 
 
 from captureAgents import CaptureAgent
-import random, util
+import random, util, time
 from game import Directions
 from util import nearestPoint
 
@@ -78,28 +78,83 @@ class Actions():
     return {'successorScore': 1.0}
 
 class getOffensiveActions(Actions):
-  def __init__(self):
-    return
+    def __init__(self, agent, index, gameState):
+        self.agent = agent
+        self.index = index
+        #self.agent.distancer.getMazeDistances()
+        self.counter = 0
 
-  def getFeatures(self):
-    #compute the distance to nearest boundary
-    #compute score from successor state
-    #compute the nearest food
+        if self.agent.red:
+            boundary = (gameState.data.layout.width - 2) / 2
+
+        if not self.agent.red:
+            boundary = ((gameState.data.layout.width - 2) / 2) + 1
+
+        self.boundary = []
+
+        for middlePoint in range(1, gameState.data.layout.height - 1):
+            if not gameState.hasWall(boundary, middlePoint):
+                self.boundary.append((boundary, middlePoint))
+
+    def getFeatures(self, gameState, action):
+
+        features = util.Counter()
+        successor = self.getSuccessor(gameState, action)
+
+        # Compute score from successor state
+        features['successorScore'] = self.agent.getScore(successor)
+
+        # get current position of the agent
+        currentPosition = successor.getAgentState(self.index).getPosition()
+
+        # compute the distance to nearest boundary
+        currentDistance = self.agent.getMazeDistance(currentPosition, self.boundary[0])
+
+        for pos in range(len(self.boundary)):
+            distance = self.agent.getMazeDistance(currentPosition, self.boundary[pos])
+            if (currentDistance > distance):
+                currentDistance = distance
+        features['nearBoundary'] = currentDistance
+
+        #compute the nearest food
+        foodCount = self.agent.getFood(successor).asList()
+        if len(foodCount) > 0:
+            currentFoodDis = self.agent.getMazeDistance(currentPosition, foodCount[0])
+            for food in foodCount:
+                disFood = self.agent.getMazeDistance(currentPosition, food)
+                if (disFood < currentFoodDis):
+                    currentFoodDis = disFood
+            features['nearFood'] = currentFoodDis
+
     #compute the nearest capsule
     #compute the closet ghost
-    return
-  def getWeights(self):
-    return
+        return
+    def getWeights(self):
+        return
 
-  def simulation(self):
-    return
+    def simulation(self):
+        return
 
-  def chooseAction(self):
-    return
+    def chooseAction(self, gameState):
+        start = time.time()
+        actions = gameState.getLegalActions(self.agent.index)
+        return random.choice(actions)
 
 class getDefensiveActions(Actions):
-  def __init__(self):
-    return
+  def __init__(self, agent, index, gameState):
+    self.index = index
+    self.agent = agent
+    self.DenfendList = {}
+
+    if self.agent.red:
+      middle = (gameState.data.layout.width - 2) / 2
+    else:
+      middle = ((gameState.data.layout.width - 2) / 2) + 1
+    self.boundary = []
+    for i in range(1, gameState.data.layout.height - 1):
+      if not gameState.hasWall(middle, i):
+        self.boundary.append((middle, i))
+
   def defenceProbability(self):
     return
   def selectPatrolTarget(self):
@@ -116,28 +171,31 @@ class getDefensiveActions(Actions):
 
     return random.choice(actions)
 
-class Attacker():
+class Attacker(CaptureAgent):
 
-  def __init__(self):
-    return
+  def __init__(self, index):
+    CaptureAgent.__init__(self, index)
 
   def registerInitialState(self, gameState):
     CaptureAgent.registerInitialState(self, gameState)
-    self.DefenceStatus = getDefensiveActions(self, self.index, gameState)
+    #self.DefenceStatus = getDefensiveActions(self, self.index, gameState)
     self.OffenceStatus = getOffensiveActions(self, self.index, gameState)
 
   def chooseAction(self, gameState):
-    return
+      random.choice(gameState.deepCopy().getLegalActions(self.index))
+      #self.enemies = self.getOpponents(gameState)
+      #invaders = [a for a in self.enemies if gameState.getAgentState(a).isPacman]
 
-class Defender():
+
+class Defender(CaptureAgent):
   def __init__(self, index):
     CaptureAgent.__init__(self, index)
 
 
   def registerInitialState(self, gameState):
     CaptureAgent.registerInitialState(self, gameState)
-    self.DefenceStatus = getDefensiveActions(self, self.index, gameState)
-    self.OffenceStatus = getOffensiveActions(self, self.index, gameState)
+    #self.DefenceStatus = getDefensiveActions(self, self.index, gameState)
+    #self.OffenceStatus = getOffensiveActions(self, self.index, gameState)
 
   def chooseAction(self, gameState):
     return
