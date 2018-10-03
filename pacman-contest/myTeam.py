@@ -82,6 +82,8 @@ class getOffensiveActions(Actions):
     def __init__(self, agent, index, gameState):
         self.agent = agent
         self.index = index
+        self.weights = util.Counter()
+        self.qValues = {}
 
         #self.agent.distancer.getMazeDistances()
         self.counter = 0
@@ -97,6 +99,35 @@ class getOffensiveActions(Actions):
         for middlePoint in range(1, gameState.data.layout.height - 1):
             if not gameState.hasWall(boundary, middlePoint):
                 self.boundary.append((boundary, middlePoint))
+
+    def getValue(self, state):
+        """
+          Returns max_action Q(state,action)
+          where the max is over legal actions.  Note that if
+          there are no legal actions, which is the case at the
+          terminal state, you should return a value of 0.0.
+        """
+
+        actionReward = float('-inf')
+        for action in state.getLegalActions(self.index):
+            expectedQVal = self.getQValue(state, action)
+            if actionReward < expectedQVal:
+                actionReward = expectedQVal
+
+        if actionReward == float('-inf'):
+            return 0.0
+
+        return actionReward
+
+    def setQValue(self, state, action, updatedValue):
+        if not self.qValues.has_key(state):
+            self.qValues[state] = {}
+
+        if not self.qValues[state].has_key(action):
+            self.qValues[state][action] = 0
+
+        self.qValues[state][action] = updatedValue
+        return updatedValue
 
     def getFeatures(self, gameState, action):
 
@@ -178,35 +209,28 @@ class getOffensiveActions(Actions):
                 self.evaluate(next_state, Directions.STOP) + decay * self.simulation(depth - 1, next_state, decay))
 
         return max(result_list)
-    '''
+
     def getQValue(self, state, action):
         """
         Should return Q(state,action) = w * featureVector
         where * is the dotProduct operator
         """
         finalValue = 0
-        for key in self.featExtractor.getFeatures(state, action).keys():
-            finalValue += self.weights[key] * self.featExtractor.getFeatures(state, action)[key]
+        for key in self.getFeatures(state, action).keys():
+            finalValue += self.weights[key] * self.getFeatures(state, action)[key]
 
         return finalValue
 
-    def update(self, state, action, nextState):
+    def update(self, gameState, action, nextState):
         """
         Should update your weights based on transition
         """
         self.discount = 0.8
         self.alpha = 0.2
-        self.reward = state.getScore() - self.lastState.getScore()
-        correction = (self.reward + (self.discount * self.getValue(nextState))) - self.getQValue(state, action)
-        for key in self.featExtractor.getFeatures(state, action).keys():
-            self.weights[key] = self.weights[key] + self.alpha * correction * self.featExtractor.getFeatures(state, action)[
-            key]
-
-    def final(self, state):
-        "Called at the end of each game."
-        # call the super-class final method
-        PacmanQAgent.final(self, state)
-    '''
+        #self.reward = getOffensiveActions.simulation(2, gameState.generateSuccessor(self.agent.index, action), 0.7)
+        correction = (self.reward + (self.discount * self.getValue(nextState))) - self.getQValue(gameState, action)
+        for key in self.getFeatures(gameState, action).keys():
+            self.weights[key] = self.weights[key] + self.alpha * correction * self.getFeatures(gameState, action)[key]
 
     def chooseAction(self, gameState):
         start = time.time()
@@ -214,13 +238,16 @@ class getOffensiveActions(Actions):
         # Get valid actions. Randomly choose a valid one out of the best (if best is more than one)
         actions = gameState.getLegalActions(self.agent.index)
         actions.remove(Directions.STOP)
+
         feasible = []
         for a in actions:
             value = 0
             # for i in range(0, 10):
             #     value += self.randomSimulation1(2, new_state, 0.8) / 10
             # fvalues.append(value)
-            value = self.simulation(2, gameState.generateSuccessor(self.agent.index, a), 0.7)
+            self.reward = self.simulation(2, gameState.generateSuccessor(self.agent.index, a), 0.7)
+            nextState = gameState.generateSuccessor(self.index, a)
+            getOffensiveActions.update(self, gameState, a, nextState)
             feasible.append(value)
 
         bestAction = max(feasible)
