@@ -16,6 +16,7 @@ from captureAgents import CaptureAgent
 import random, util, time
 from game import Directions
 from util import nearestPoint
+import pacman
 
 
 #################
@@ -81,6 +82,7 @@ class getOffensiveActions(Actions):
     def __init__(self, agent, index, gameState):
         self.agent = agent
         self.index = index
+
         #self.agent.distancer.getMazeDistances()
         self.counter = 0
 
@@ -116,6 +118,8 @@ class getOffensiveActions(Actions):
                 currentDistance = distance
         features['nearBoundary'] = currentDistance
 
+        features['carrying'] = successor.getAgentState(self.index).numCarrying
+
         #compute the nearest food
         foodCount = self.agent.getFood(successor).asList()
         if len(foodCount) > 0:
@@ -126,41 +130,103 @@ class getOffensiveActions(Actions):
                     currentFoodDis = disFood
             features['nearFood'] = currentFoodDis
 
-    #compute the nearest capsule
-    #compute the closet ghost
-        return 0
+        #compute the nearest capsule
+        #compute the closet ghost
+        return features
+
     def getWeights(self, gameState, action):
+        successor = self.getSuccessor(gameState, action)
+        numOfCarrying = successor.getAgentState(self.index).numCarrying
+        opponents = [successor.getAgentState(i) for i in self.agent.getOpponents(successor)]
+        visible = filter(lambda x: not x.isPacman and x.getPosition() != None, opponents)
+        if len(visible) > 0:
+            for agent in visible:
+                if agent.scaredTimer > 0:
+                    if agent.scaredTimer > 12:
+                        return {'successorScore': 110, 'nearFood': -10, 'nearBoundary': 10-3*numOfCarrying, 'carrying': 350}
 
-        return 1
+                    elif 6 < agent.scaredTimer < 12:
+                        return {'successorScore': 110 + 5 * numOfCarrying, 'nearFood': -5, 'nearBoundary': -5-4*numOfCarrying, 'carrying': 100}
 
-    def simulation(self):
-        return 0
+                # Visible and not scared
+                else:
+                    return {'successorScore': 110, 'nearFood': -10, 'nearBoundary': -15, 'carrying': 0}
+
+        # Did not see anything
+        self.counter += 1
+        # print("Counter ",self.counter)
+        return {'successorScore': 1000 + numOfCarrying * 3.5, 'nearFood': -7, 'nearBoundary': 5-numOfCarrying*3, 'carrying': 350}
+
+    def simulation(self, depth, gameState, decay):
+        new_state = gameState.deepCopy()
+        if depth == 0:
+            result_list = []
+            action = random.choice(new_state.getLegalActions(self.index))
+            next_state = new_state.generateSuccessor(self.index, action)
+            result_list.append(self.evaluate(next_state, Directions.STOP))
+            return max(result_list)
+
+        # Get valid actions
+        result_list = []
+        actions = new_state.getLegalActions(self.index)
+
+        # Randomly chooses a valid action
+        for a in actions:
+            # Compute new state and update depth
+            next_state = new_state.generateSuccessor(self.index, a)
+            result_list.append(
+                self.evaluate(next_state, Directions.STOP) + decay * self.simulation(depth - 1, next_state, decay))
+
+        return max(result_list)
+    '''
+    def getQValue(self, state, action):
+        """
+        Should return Q(state,action) = w * featureVector
+        where * is the dotProduct operator
+        """
+        finalValue = 0
+        for key in self.featExtractor.getFeatures(state, action).keys():
+            finalValue += self.weights[key] * self.featExtractor.getFeatures(state, action)[key]
+
+        return finalValue
+
+    def update(self, state, action, nextState):
+        """
+        Should update your weights based on transition
+        """
+        self.discount = 0.8
+        self.alpha = 0.2
+        self.reward = state.getScore() - self.lastState.getScore()
+        correction = (self.reward + (self.discount * self.getValue(nextState))) - self.getQValue(state, action)
+        for key in self.featExtractor.getFeatures(state, action).keys():
+            self.weights[key] = self.weights[key] + self.alpha * correction * self.featExtractor.getFeatures(state, action)[
+            key]
+
+    def final(self, state):
+        "Called at the end of each game."
+        # call the super-class final method
+        PacmanQAgent.final(self, state)
+    '''
 
     def chooseAction(self, gameState):
-        actions = gameState.getLegalActions(self.index)
+        start = time.time()
 
-        # You can profile your evaluation time by uncommenting these lines
-        # start = time.time()
-        values = [self.evaluate(gameState, a) for a in actions]
-        # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
+        # Get valid actions. Randomly choose a valid one out of the best (if best is more than one)
+        actions = gameState.getLegalActions(self.agent.index)
+        actions.remove(Directions.STOP)
+        feasible = []
+        for a in actions:
+            value = 0
+            # for i in range(0, 10):
+            #     value += self.randomSimulation1(2, new_state, 0.8) / 10
+            # fvalues.append(value)
+            value = self.simulation(2, gameState.generateSuccessor(self.agent.index, a), 0.7)
+            feasible.append(value)
 
-        maxValue = max(values)
-        bestActions = [a for a, v in zip(actions, values) if v == maxValue]
-
-        foodLeft = len(self.agent.getFood(gameState).asList())
-
-        if foodLeft <= 2:
-            bestDist = 9999
-            for action in actions:
-                successor = self.getSuccessor(gameState, action)
-                pos2 = successor.getAgentPosition(self.index)
-                dist = self.getMazeDistance(self.start, pos2)
-                if dist < bestDist:
-                    bestAction = action
-                    bestDist = dist
-            return bestAction
-
-        return random.choice(bestActions)
+        bestAction = max(feasible)
+        possibleChoice = filter(lambda x: x[0] == bestAction, zip(feasible, actions))
+        # print 'eval time for offensive agent %d: %.4f' % (self.agent.index, time.time() - start)
+        return random.choice(possibleChoice)[1]
 
 class getDefensiveActions(Actions):
   def __init__(self, agent, index, gameState):
@@ -228,3 +294,5 @@ class Defender(CaptureAgent):
 
   def chooseAction(self, gameState):
     return
+
+
