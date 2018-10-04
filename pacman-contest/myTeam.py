@@ -49,34 +49,78 @@ def createTeam(firstIndex, secondIndex, isRed,
 class Actions():
 
   def getSuccessor(self, gameState, action):
-      successor = gameState.generateSuccessor(self.index, action)
-      pos = successor.getAgentState(self.index).getPosition()
-      if pos != nearestPoint(pos):
+      if gameState != None:
+        successor = gameState.generateSuccessor(self.index, action)
+        pos = successor.getAgentState(self.index).getPosition()
+        if pos != nearestPoint(pos):
           # Only half a grid position was covered
-          return successor.generateSuccessor(self.index, action)
-      else:
-          return successor
+            return successor.generateSuccessor(self.index, action)
+        else:
+            return successor
+
+  def doAction(self, state, action):
+      """
+          Called by inherited class when
+          an action is taken in a state
+      """
+      self.lastState = state
+      self.lastAction = action
+
+  def getAction(self, state):
+      """
+        Compute the action to take in the current state.  With
+        probability self.epsilon, we should take a random action and
+        take the best policy action otherwise.  Note that if there are
+        no legal actions, which is the case at the terminal state, you
+        should choose None as the action.
+
+        HINT: You might want to use util.flipCoin(prob)
+        HINT: To pick randomly from a list, use random.choice(list)
+      """
+      # Pick Action
+
+
+      legalActions = state.getLegalActions(state)
+      randomAct = random.choice(legalActions)
+
+      if len(legalActions) is 0:
+          return None
+
+      self.doAction(state, randomAct)
+      return randomAct
+
+
 
   def evaluate(self, gameState, action):
-      features = self.getFeatures(gameState, action)
-      weights = self.getWeights(gameState, action)
-      return features * weights
+      if gameState != None:
+        features = self.getFeatures(gameState, action)
+        weights = self.getWeights(gameState, action)
+        return features * weights
 
   def getFeatures(self, gameState, action):
     """
     Returns a counter of features for the state
     """
-    features = util.Counter()
-    successor = self.getSuccessor(gameState, action)
-    features['successorScore'] = self.getScore(successor)
-    return features
+    if gameState != None:
+        features = util.Counter()
+        successor = self.getSuccessor(gameState, action)
+        features['successorScore'] = self.getScore(successor)
+        return features
 
   def getWeights(self, gameState, action):
     """
     Normally, weights do not depend on the gamestate.  They can be either
     a counter or a dictionary.
     """
-    return {'successorScore': 1.0}
+    if gameState != None:
+        return {'successorScore': 1.0}
+
+  def startEpisode(self):
+      """
+        Called by environment when new episode is starting
+      """
+      self.lastState = None
+      self.lastAction = None
 
 class getOffensiveActions(Actions):
     def __init__(self, agent, index, gameState):
@@ -100,6 +144,8 @@ class getOffensiveActions(Actions):
             if not gameState.hasWall(boundary, middlePoint):
                 self.boundary.append((boundary, middlePoint))
 
+
+
     def getValue(self, state):
         """
           Returns max_action Q(state,action)
@@ -109,7 +155,8 @@ class getOffensiveActions(Actions):
         """
 
         actionReward = float('-inf')
-        for action in state.getLegalActions(self.index):
+        nextState = state.getLegalActions(self.index)
+        for action in nextState:
             expectedQVal = self.getQValue(state, action)
             if actionReward < expectedQVal:
                 actionReward = expectedQVal
@@ -119,51 +166,41 @@ class getOffensiveActions(Actions):
 
         return actionReward
 
-    def setQValue(self, state, action, updatedValue):
-        if not self.qValues.has_key(state):
-            self.qValues[state] = {}
-
-        if not self.qValues[state].has_key(action):
-            self.qValues[state][action] = 0
-
-        self.qValues[state][action] = updatedValue
-        return updatedValue
-
     def getFeatures(self, gameState, action):
-
-        features = util.Counter()
-        successor = self.getSuccessor(gameState, action)
+        if gameState != None:
+            features = util.Counter()
+            successor = self.getSuccessor(gameState, action)
 
         # Compute score from successor state
-        features['successorScore'] = self.agent.getScore(successor)
+            features['successorScore'] = self.agent.getScore(successor)
 
         # get current position of the agent
-        currentPosition = successor.getAgentState(self.index).getPosition()
+            currentPosition = successor.getAgentState(self.index).getPosition()
 
         # compute the distance to nearest boundary
-        currentDistance = self.agent.getMazeDistance(currentPosition, self.boundary[0])
+            currentDistance = self.agent.getMazeDistance(currentPosition, self.boundary[0])
 
-        for pos in range(len(self.boundary)):
-            distance = self.agent.getMazeDistance(currentPosition, self.boundary[pos])
-            if (currentDistance > distance):
-                currentDistance = distance
-        features['nearBoundary'] = currentDistance
+            for pos in range(len(self.boundary)):
+                distance = self.agent.getMazeDistance(currentPosition, self.boundary[pos])
+                if (currentDistance > distance):
+                    currentDistance = distance
+            features['nearBoundary'] = currentDistance
 
-        features['carrying'] = successor.getAgentState(self.index).numCarrying
+            features['carrying'] = successor.getAgentState(self.index).numCarrying
 
         #compute the nearest food
-        foodCount = self.agent.getFood(successor).asList()
-        if len(foodCount) > 0:
-            currentFoodDis = self.agent.getMazeDistance(currentPosition, foodCount[0])
-            for food in foodCount:
-                disFood = self.agent.getMazeDistance(currentPosition, food)
-                if (disFood < currentFoodDis):
-                    currentFoodDis = disFood
-            features['nearFood'] = currentFoodDis
+            foodCount = self.agent.getFood(successor).asList()
+            if len(foodCount) > 0:
+                currentFoodDis = self.agent.getMazeDistance(currentPosition, foodCount[0])
+                for food in foodCount:
+                    disFood = self.agent.getMazeDistance(currentPosition, food)
+                    if (disFood < currentFoodDis):
+                        currentFoodDis = disFood
+                features['nearFood'] = currentFoodDis
 
         #compute the nearest capsule
         #compute the closet ghost
-        return features
+            return features
 
     def getWeights(self, gameState, action):
         successor = self.getSuccessor(gameState, action)
@@ -207,7 +244,6 @@ class getOffensiveActions(Actions):
             next_state = new_state.generateSuccessor(self.index, a)
             result_list.append(
                 self.evaluate(next_state, Directions.STOP) + decay * self.simulation(depth - 1, next_state, decay))
-
         return max(result_list)
 
     def getQValue(self, state, action):
@@ -215,45 +251,93 @@ class getOffensiveActions(Actions):
         Should return Q(state,action) = w * featureVector
         where * is the dotProduct operator
         """
-        finalValue = 0
-        for key in self.getFeatures(state, action).keys():
-            finalValue += self.weights[key] * self.getFeatures(state, action)[key]
+        if state != None:
+            finalValue = 0
+            for key in self.getFeatures(state, action).keys():
+                finalValue += self.weights[key] * self.getFeatures(state, action)[key]
 
-        return finalValue
+            return finalValue
 
-    def update(self, gameState, action, nextState):
+    def update(self, gameState, action, nextState, reward):
         """
         Should update your weights based on transition
         """
-        self.discount = 0.8
-        self.alpha = 0.2
-        #self.reward = getOffensiveActions.simulation(2, gameState.generateSuccessor(self.agent.index, action), 0.7)
-        correction = (self.reward + (self.discount * self.getValue(nextState))) - self.getQValue(gameState, action)
-        for key in self.getFeatures(gameState, action).keys():
-            self.weights[key] = self.weights[key] + self.alpha * correction * self.getFeatures(gameState, action)[key]
+        if gameState != None:
+            self.discount = 0.8
+            self.alpha = 0.2
+            self.reward = reward
+            correction = (self.reward + (self.discount * self.getValue(nextState))) - self.getQValue(gameState, action)
+            for key in self.getFeatures(gameState, action).keys():
+                self.weights[key] = self.weights[key] + self.alpha * correction * self.getFeatures(gameState, action)[key]
+
+
+    def observationFunction(self, state):
+        """
+            This is where we ended up after our last action.
+            The simulation should somehow ensure this is called
+        """
+        if not self.lastState is None:
+            reward = 1
+            self.observeTransition(self.lastState, self.lastAction, state, reward)
+        return state
+
+    def getLegalActions(self, state):
+        """
+          Get the actions available for a given
+          state. This is what you should use to
+          obtain legal actions for a state
+        """
+        return self.actionFn(state)
+
+    def actionFn(self, actionFn = None):
+
+        if actionFn == None:
+            actionFn = lambda state: state.getLegalActions()
+        self.actionFn = actionFn
+
+
+    def observeTransition(self, state, action, nextState, deltaReward):
+        """
+            Called by environment to inform agent that a transition has
+            been observed. This will result in a call to self.update
+            on the same arguments
+
+            NOTE: Do *not* override or call this function
+        """
+        self.update(state, action, nextState, deltaReward)
 
     def chooseAction(self, gameState):
         start = time.time()
 
         # Get valid actions. Randomly choose a valid one out of the best (if best is more than one)
-        actions = gameState.getLegalActions(self.agent.index)
-        actions.remove(Directions.STOP)
+        # All possible paths
+        #actions = gameState.getLegalActions(self.agent.index)
+        #actions.remove(Directions.STOP)
 
-        feasible = []
-        for a in actions:
-            value = 0
+        #feasible = []
+        #for a in actions:
+            #value = 0
             # for i in range(0, 10):
             #     value += self.randomSimulation1(2, new_state, 0.8) / 10
             # fvalues.append(value)
-            self.reward = self.simulation(2, gameState.generateSuccessor(self.agent.index, a), 0.7)
-            nextState = gameState.generateSuccessor(self.index, a)
-            getOffensiveActions.update(self, gameState, a, nextState)
-            feasible.append(value)
 
-        bestAction = max(feasible)
-        possibleChoice = filter(lambda x: x[0] == bestAction, zip(feasible, actions))
+            #self.simulation(2, gameState.generateSuccessor(self.agent.index, a), 0.7)
+        self.startEpisode()
+        self.final(gameState)
+            #feasible.append(value)
+
+        #bestAction = max(feasible)
+        #possibleChoice = filter(lambda x: x[0] == bestAction, zip(feasible, actions))
         # print 'eval time for offensive agent %d: %.4f' % (self.agent.index, time.time() - start)
-        return random.choice(possibleChoice)[1]
+
+    def final(self, state):
+        "Called at the end of each game."
+        # call the super-class final method
+        deltaReward = 1
+        self.observeTransition(self.lastState, self.lastAction, state, deltaReward)
+
+
+
 
 class getDefensiveActions(Actions):
   def __init__(self, agent, index, gameState):
@@ -293,6 +377,7 @@ class Attacker(CaptureAgent):
 
   def registerInitialState(self, gameState):
     CaptureAgent.registerInitialState(self, gameState)
+
     #self.DefenceStatus = getDefensiveActions(self, self.index, gameState)
     self.OffenceStatus = getOffensiveActions(self, self.index, gameState)
 
