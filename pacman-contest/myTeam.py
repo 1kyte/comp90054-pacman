@@ -49,18 +49,13 @@ def createTeam(firstIndex, secondIndex, isRed,
 class Actions():
 
   def getSuccessor(self, gameState, action):
-      if gameState != None:
-        successor = gameState.generateSuccessor(self.index, action)
-        pos = successor.getAgentState(self.index).getPosition()
-        if pos != nearestPoint(pos):
-          # Only half a grid position was covered
-            return successor.generateSuccessor(self.index, action)
-        else:
-            return successor
-
-
-
-
+    successor = gameState.generateSuccessor(self.index, action)
+    pos = successor.getAgentState(self.index).getPosition()
+    if pos != nearestPoint(pos):
+    # Only half a grid position was covered
+        return successor.generateSuccessor(self.index, action)
+    else:
+        return successor
 
   def evaluate(self, gameState, action):
     features = self.getFeatures(gameState, action)
@@ -91,6 +86,7 @@ class Actions():
       self.lastAction = None
 
 class getOffensiveActions(Actions):
+
     def __init__(self, agent, index, gameState, actionFn = None, numTraining=100, epsilon=0.5, alpha=0.5, gamma=1):
         self.agent = agent
         self.index = index
@@ -175,9 +171,6 @@ class getOffensiveActions(Actions):
         features = util.Counter()
         successor = self.getSuccessor(gameState, action)
 
-        # Compute score from successor state
-        features['successorScore'] = self.agent.getScore(successor)
-
         # get current position of the agent
         currentPosition = successor.getAgentState(self.index).getPosition()
 
@@ -215,19 +208,19 @@ class getOffensiveActions(Actions):
             for agent in visible:
                 if agent.scaredTimer > 0:
                     if agent.scaredTimer > 12:
-                        return {'successorScore': 110, 'nearFood': -10, 'nearBoundary': 10-3*numOfCarrying, 'carrying': 350}
+                        return {'nearFood': -10, 'nearBoundary': 10-3*numOfCarrying, 'carrying': 350}
 
                     elif 6 < agent.scaredTimer < 12:
-                        return {'successorScore': 110 + 5 * numOfCarrying, 'nearFood': -5, 'nearBoundary': -5-4*numOfCarrying, 'carrying': 100}
+                        return {'nearFood': -5, 'nearBoundary': -5-4*numOfCarrying, 'carrying': 100}
 
                 # Visible and not scared
                 else:
-                    return {'successorScore': 110, 'nearFood': -10, 'nearBoundary': -15, 'carrying': 0}
+                    return {'nearFood': -10, 'nearBoundary': -15, 'carrying': 0}
 
         # Did not see anything
         self.counter += 1
         # print("Counter ",self.counter)
-        return {'successorScore': 1000 + numOfCarrying * 3.5, 'nearFood': -7, 'nearBoundary': 5-numOfCarrying*3, 'carrying': 350}
+        return {'nearFood': -7, 'nearBoundary': 5-numOfCarrying*3, 'carrying': 350}
 
     def simulation(self, depth, gameState, decay):
         new_state = gameState.deepCopy()
@@ -314,19 +307,21 @@ class getOffensiveActions(Actions):
 
         # Get valid actions. Randomly choose a valid one out of the best (if best is more than one)
         # All possible paths
-        #actions = gameState.getLegalActions(self.agent.index)
-        #actions.remove(Directions.STOP)
+        actions = gameState.getLegalActions(self.agent.index)
+        actions.remove(Directions.STOP)
 
         #feasible = []
-        #for a in actions:
+        for a in actions:
             #value = 0
             # for i in range(0, 10):
             #     value += self.randomSimulation1(2, new_state, 0.8) / 10
             # fvalues.append(value)
-
+            self.doAction(gameState, a)
+            print self.lastState
+            print self.lastAction
+            self.observationFunction(gameState.generateSuccessor(self.agent.index, a))
             #self.simulation(2, gameState.generateSuccessor(self.agent.index, a), 0.7)
-        self.startEpisode()
-        self.observationFunction(gameState)
+
         self.final(gameState)
             #feasible.append(value)
 
@@ -399,6 +394,7 @@ class Attacker(CaptureAgent):
       #if self.getScore(gameState) >= 13:
       #    return self.DefenceStatus.chooseAction(gameState)
       #else:
+      self.OffenceStatus.startEpisode()
       self.OffenceStatus.chooseAction(gameState)
       #random.choice(gameState.deepCopy().getLegalActions(self.index))
       #self.enemies = self.getOpponents(gameState)
