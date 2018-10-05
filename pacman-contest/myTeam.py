@@ -13,7 +13,7 @@
 
 
 from captureAgents import CaptureAgent
-import random, util, time
+import random, util, time, math
 from game import Directions
 from util import nearestPoint
 import pacman
@@ -57,9 +57,6 @@ class Actions():
             return successor.generateSuccessor(self.index, action)
         else:
             return successor
-
-
-
 
 
   def evaluate(self, gameState, action):
@@ -106,6 +103,7 @@ class getOffensiveActions(Actions):
         self.epsilon = float(epsilon)
         self.alpha = float(alpha)
         self.discount = float(gamma)
+        self.startEpisode()
 
         #self.agent.distancer.getMazeDistances()
         self.counter = 0
@@ -143,6 +141,12 @@ class getOffensiveActions(Actions):
         """
         # Pick Action
         legalActions = state.getLegalActions(self.agent.index)
+        legalActions.remove(Directions.STOP)
+        reversed = Directions.REVERSE[state.getAgentState(self.agent.index).configuration.direction]
+        if not self.lastAction == None:
+            if reversed in legalActions and len(legalActions)>1:
+                legalActions.remove(reversed)
+
         randomAct = random.choice(legalActions)
 
         if len(legalActions) is 0:
@@ -188,7 +192,7 @@ class getOffensiveActions(Actions):
             distance = self.agent.getMazeDistance(currentPosition, self.boundary[pos])
             if (currentDistance > distance):
                 currentDistance = distance
-        features['nearBoundary'] = currentDistance
+        # features['nearBoundary'] = currentDistance
 
         features['carrying'] = successor.getAgentState(self.index).numCarrying
 
@@ -215,20 +219,23 @@ class getOffensiveActions(Actions):
             for agent in visible:
                 if agent.scaredTimer > 0:
                     if agent.scaredTimer > 12:
-                        return {'successorScore': 110, 'nearFood': -10, 'nearBoundary': 10-3*numOfCarrying, 'carrying': 350}
+                        # return {'successorScore': 0, 'nearFood': 0, 'nearBoundary': 0, 'carrying': 0}
+                        return {'successorScore': 0, 'nearFood': 0,  'carrying': 0}
 
                     elif 6 < agent.scaredTimer < 12:
-                        return {'successorScore': 110 + 5 * numOfCarrying, 'nearFood': -5, 'nearBoundary': -5-4*numOfCarrying, 'carrying': 100}
+                        # return {'successorScore': 0, 'nearFood': 0, 'nearBoundary': 0, 'carrying': 0}
+                        return {'successorScore': 0, 'nearFood': 0, 'carrying': 0}
 
                 # Visible and not scared
                 else:
-                    return {'successorScore': 110, 'nearFood': -10, 'nearBoundary': -15, 'carrying': 0}
+                    # return {'successorScore': 0, 'nearFood': 0, 'nearBoundary': 0, 'carrying': 0}
+                    return {'successorScore': 0, 'nearFood': 0, 'carrying': 0}
 
         # Did not see anything
         self.counter += 1
         # print("Counter ",self.counter)
-        return {'successorScore': 1000 + numOfCarrying * 3.5, 'nearFood': -7, 'nearBoundary': 5-numOfCarrying*3, 'carrying': 350}
-
+        # return {'successorScore': 0, 'nearFood': 0, 'nearBoundary': 0, 'carrying': 0}
+        return {'successorScore': 0, 'nearFood': 0, 'carrying': 0}
     def simulation(self, depth, gameState, decay):
         new_state = gameState.deepCopy()
         if depth == 0:
@@ -269,9 +276,14 @@ class getOffensiveActions(Actions):
         self.alpha = 0.2
         self.reward = reward
         correction = (self.reward + (self.discount * self.getValue(nextState))) - self.getQValue(gameState, action)
-        print correction
+        # print correction
         for key in self.getFeatures(gameState, action).keys():
             self.weights[key] = self.weights[key] + self.alpha * correction * self.getFeatures(gameState, action)[key]
+
+        print "weights" , self.weights
+        print "featrures", self.getFeatures(gameState, action)
+        if math.isnan(self.weights['nearFood']):
+            print "is nan"
 
 
     def observationFunction(self, state):
@@ -325,7 +337,7 @@ class getOffensiveActions(Actions):
             # fvalues.append(value)
 
             #self.simulation(2, gameState.generateSuccessor(self.agent.index, a), 0.7)
-        self.startEpisode()
+
         a = self.getAction(gameState)
         self.observationFunction(gameState)
         self.final(gameState)
@@ -388,11 +400,11 @@ class getDefensiveActions(Actions):
 
     def getWeights(self, gameState, action):
         """
-                The weights and features contain:
-                    1. the distance between ghost and boundary;
-                    2. the distance between the ghost and the pacdot which is the clasest point with boundary;
-                    3. the distance between the ghost and enemy.
-                    4. the distance between the ghost and the protected Capsule
+            The weights and features contain:
+                1. the distance between ghost and boundary;
+                2. the distance between the ghost and the pacdot which is the clasest point with boundary;
+                3. the distance between the ghost and enemy.
+                4. the distance between the ghost and the protected Capsule
             """
 
         s = self.getSuccessor(gameState, action)
@@ -450,6 +462,6 @@ class Defender(CaptureAgent):
     #self.OffenceStatus = getOffensiveActions(self, self.index, gameState)
 
   def chooseAction(self, gameState):
-    return self.DefenceStatus.chooseAction(gameState)
+    return Directions.STOP#self.DefenceStatus.chooseAction(gameState)
 
 
