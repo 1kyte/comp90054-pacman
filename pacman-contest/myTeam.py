@@ -262,10 +262,11 @@ class getOffensiveActions(Actions):
         Should return Q(state,action) = w * featureVector
         where * is the dotProduct operator
         """
+        self.weights = self.getWeights(state, action)
         finalValue = 0
         for key in self.getFeatures(state, action).keys():
             finalValue += self.weights[key] * self.getFeatures(state, action)[key]
-
+        # return self.weights*self.getFeatures(state, action)
         return finalValue
 
     def update(self, gameState, action, nextState, reward):
@@ -275,6 +276,8 @@ class getOffensiveActions(Actions):
         self.discount = 0.8
         self.alpha = 0.2
         self.reward = reward
+        a = self.getValue(nextState)
+        b = self.getQValue(gameState, action)
         correction = (self.reward + (self.discount * self.getValue(nextState))) - self.getQValue(gameState, action)
         # print correction
         for key in self.getFeatures(gameState, action).keys():
@@ -282,6 +285,7 @@ class getOffensiveActions(Actions):
 
         print "weights" , self.weights
         print "featrures", self.getFeatures(gameState, action)
+        print "correction %.2f" % correction
         if math.isnan(self.weights['nearFood']):
             print "is nan"
 
