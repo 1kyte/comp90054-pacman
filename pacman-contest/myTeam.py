@@ -363,12 +363,39 @@ class getDefensiveActions(Actions):
         Picks among actions randomly.
         """
     actions = gameState.getLegalActions(self.index)
-
+    # for a in actions:
+    #     self.evaluate(gameState, a)
     '''
     You should change this in your own agent.
     '''
 
     return random.choice(actions)
+
+    def getWeights(self, gameState, action):
+        """
+                The weights and features contain:
+                    1. the distance between ghost and boundary;
+                    2. the distance between the ghost and the pacdot which is the clasest point with boundary;
+                    3. the distance between the ghost and enemy.
+                    4. the distance between the ghost and the protected Capsule
+            """
+
+        s = self.getSuccessor(gameState, action)
+
+        # return
+
+    def getFeatures(self, gameState, action):
+        features = util.Counter()
+
+        # get the distance to boundary
+
+        # get the distance to the food
+        protectedFood = self.agent.getFoodYouAreDefending(gameState)
+
+        # get the distance to enemy
+
+        # get the distance to protected Capsule
+        capsulesList = self.agent.getCapsulesYouAreDefending(gameState)
 
 class Attacker(CaptureAgent):
 
@@ -401,10 +428,10 @@ class Defender(CaptureAgent):
 
   def registerInitialState(self, gameState):
     CaptureAgent.registerInitialState(self, gameState)
-    #self.DefenceStatus = getDefensiveActions(self, self.index, gameState)
+    self.DefenceStatus = getDefensiveActions(self, self.index, gameState)
     #self.OffenceStatus = getOffensiveActions(self, self.index, gameState)
 
   def chooseAction(self, gameState):
-    return
+    return self.DefenceStatus.chooseAction(gameState)
 
 
