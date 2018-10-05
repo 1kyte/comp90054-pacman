@@ -49,13 +49,18 @@ def createTeam(firstIndex, secondIndex, isRed,
 class Actions():
 
   def getSuccessor(self, gameState, action):
-    successor = gameState.generateSuccessor(self.index, action)
-    pos = successor.getAgentState(self.index).getPosition()
-    if pos != nearestPoint(pos):
-    # Only half a grid position was covered
-        return successor.generateSuccessor(self.index, action)
-    else:
-        return successor
+      if gameState != None:
+        successor = gameState.generateSuccessor(self.index, action)
+        pos = successor.getAgentState(self.index).getPosition()
+        if pos != nearestPoint(pos):
+          # Only half a grid position was covered
+            return successor.generateSuccessor(self.index, action)
+        else:
+            return successor
+
+
+
+
 
   def evaluate(self, gameState, action):
     features = self.getFeatures(gameState, action)
@@ -86,7 +91,6 @@ class Actions():
       self.lastAction = None
 
 class getOffensiveActions(Actions):
-
     def __init__(self, agent, index, gameState, actionFn = None, numTraining=100, epsilon=0.5, alpha=0.5, gamma=1):
         self.agent = agent
         self.index = index
@@ -138,7 +142,7 @@ class getOffensiveActions(Actions):
           HINT: To pick randomly from a list, use random.choice(list)
         """
         # Pick Action
-        legalActions = state.getLegalActions(state)
+        legalActions = state.getLegalActions(self.agent.index)
         randomAct = random.choice(legalActions)
 
         if len(legalActions) is 0:
@@ -170,6 +174,9 @@ class getOffensiveActions(Actions):
     def getFeatures(self, gameState, action):
         features = util.Counter()
         successor = self.getSuccessor(gameState, action)
+
+        # Compute score from successor state
+        features['successorScore'] = self.agent.getScore(successor)
 
         # get current position of the agent
         currentPosition = successor.getAgentState(self.index).getPosition()
@@ -208,19 +215,19 @@ class getOffensiveActions(Actions):
             for agent in visible:
                 if agent.scaredTimer > 0:
                     if agent.scaredTimer > 12:
-                        return {'nearFood': -10, 'nearBoundary': 10-3*numOfCarrying, 'carrying': 350}
+                        return {'successorScore': 110, 'nearFood': -10, 'nearBoundary': 10-3*numOfCarrying, 'carrying': 350}
 
                     elif 6 < agent.scaredTimer < 12:
-                        return {'nearFood': -5, 'nearBoundary': -5-4*numOfCarrying, 'carrying': 100}
+                        return {'successorScore': 110 + 5 * numOfCarrying, 'nearFood': -5, 'nearBoundary': -5-4*numOfCarrying, 'carrying': 100}
 
                 # Visible and not scared
                 else:
-                    return {'nearFood': -10, 'nearBoundary': -15, 'carrying': 0}
+                    return {'successorScore': 110, 'nearFood': -10, 'nearBoundary': -15, 'carrying': 0}
 
         # Did not see anything
         self.counter += 1
         # print("Counter ",self.counter)
-        return {'nearFood': -7, 'nearBoundary': 5-numOfCarrying*3, 'carrying': 350}
+        return {'successorScore': 1000 + numOfCarrying * 3.5, 'nearFood': -7, 'nearBoundary': 5-numOfCarrying*3, 'carrying': 350}
 
     def simulation(self, depth, gameState, decay):
         new_state = gameState.deepCopy()
@@ -304,27 +311,29 @@ class getOffensiveActions(Actions):
 
     def chooseAction(self, gameState):
         #start = time.time()
-
+        # 3
         # Get valid actions. Randomly choose a valid one out of the best (if best is more than one)
         # All possible paths
-        actions = gameState.getLegalActions(self.agent.index)
-        actions.remove(Directions.STOP)
+        #actions = gameState.getLegalActions(self.agent.index)
+        #actions.remove(Directions.STOP)
 
         #feasible = []
-        for a in actions:
+        #for a in actions:
             #value = 0
             # for i in range(0, 10):
             #     value += self.randomSimulation1(2, new_state, 0.8) / 10
             # fvalues.append(value)
-            self.doAction(gameState, a)
-            print self.lastState
-            print self.lastAction
-            self.observationFunction(gameState.generateSuccessor(self.agent.index, a))
+
             #self.simulation(2, gameState.generateSuccessor(self.agent.index, a), 0.7)
-
+        self.startEpisode()
+        a = self.getAction(gameState)
+        self.observationFunction(gameState)
         self.final(gameState)
+        # self.getAction(gameState)
+        # self.observationFunction(gameState)
+        # self.final(gameState)
             #feasible.append(value)
-
+        return a
         #bestAction = max(feasible)
         #possibleChoice = filter(lambda x: x[0] == bestAction, zip(feasible, actions))
         # print 'eval time for offensive agent %d: %.4f' % (self.agent.index, time.time() - start)
@@ -369,12 +378,39 @@ class getDefensiveActions(Actions):
         Picks among actions randomly.
         """
     actions = gameState.getLegalActions(self.index)
-
+    # for a in actions:
+    #     self.evaluate(gameState, a)
     '''
     You should change this in your own agent.
     '''
 
     return random.choice(actions)
+
+    def getWeights(self, gameState, action):
+        """
+                The weights and features contain:
+                    1. the distance between ghost and boundary;
+                    2. the distance between the ghost and the pacdot which is the clasest point with boundary;
+                    3. the distance between the ghost and enemy.
+                    4. the distance between the ghost and the protected Capsule
+            """
+
+        s = self.getSuccessor(gameState, action)
+
+        # return
+
+    def getFeatures(self, gameState, action):
+        features = util.Counter()
+
+        # get the distance to boundary
+
+        # get the distance to the food
+        protectedFood = self.agent.getFoodYouAreDefending(gameState)
+
+        # get the distance to enemy
+
+        # get the distance to protected Capsule
+        capsulesList = self.agent.getCapsulesYouAreDefending(gameState)
 
 class Attacker(CaptureAgent):
 
@@ -388,14 +424,16 @@ class Attacker(CaptureAgent):
     self.OffenceStatus = getOffensiveActions(self, self.index, gameState)
 
   def chooseAction(self, gameState):
-      #self.enemies = self.getOpponents(gameState)
+      #2
+      # self.enemies = self.getOpponents(gameState)
       #invaders = [a for a in self.enemies if gameState.getAgentState(a).isPacman]
 
       #if self.getScore(gameState) >= 13:
       #    return self.DefenceStatus.chooseAction(gameState)
       #else:
-      self.OffenceStatus.startEpisode()
-      self.OffenceStatus.chooseAction(gameState)
+      # self.OffenceStatus.getAction(gameState)
+      return self.OffenceStatus.chooseAction(gameState)
+      # self.OffenceStatus.final(gameState)
       #random.choice(gameState.deepCopy().getLegalActions(self.index))
       #self.enemies = self.getOpponents(gameState)
       #invaders = [a for a in self.enemies if gameState.getAgentState(a).isPacman]
@@ -408,10 +446,10 @@ class Defender(CaptureAgent):
 
   def registerInitialState(self, gameState):
     CaptureAgent.registerInitialState(self, gameState)
-    #self.DefenceStatus = getDefensiveActions(self, self.index, gameState)
+    self.DefenceStatus = getDefensiveActions(self, self.index, gameState)
     #self.OffenceStatus = getOffensiveActions(self, self.index, gameState)
 
   def chooseAction(self, gameState):
-    return
+    return self.DefenceStatus.chooseAction(gameState)
 
 

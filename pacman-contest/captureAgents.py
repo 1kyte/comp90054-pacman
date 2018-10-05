@@ -143,6 +143,7 @@ class CaptureAgent(Agent):
 
   def getAction(self, gameState):
     """
+    1
     Calls chooseAction on a grid position, but continues on half positions.
     If you subclass CaptureAgent, you shouldn't need to override this method.  It
     takes care of appending the current gameState on to your observation history
