@@ -58,62 +58,30 @@ class Actions():
         else:
             return successor
 
-  def doAction(self, state, action):
-      """
-          Called by inherited class when
-          an action is taken in a state
-      """
-      self.lastState = state
-      self.lastAction = action
 
-  def getAction(self, state):
-      """
-        Compute the action to take in the current state.  With
-        probability self.epsilon, we should take a random action and
-        take the best policy action otherwise.  Note that if there are
-        no legal actions, which is the case at the terminal state, you
-        should choose None as the action.
-
-        HINT: You might want to use util.flipCoin(prob)
-        HINT: To pick randomly from a list, use random.choice(list)
-      """
-      # Pick Action
-
-
-      legalActions = state.getLegalActions(state)
-      randomAct = random.choice(legalActions)
-
-      if len(legalActions) is 0:
-          return None
-
-      self.doAction(state, randomAct)
-      return randomAct
 
 
 
   def evaluate(self, gameState, action):
-      if gameState != None:
-        features = self.getFeatures(gameState, action)
-        weights = self.getWeights(gameState, action)
-        return features * weights
+    features = self.getFeatures(gameState, action)
+    weights = self.getWeights(gameState, action)
+    return features * weights
 
   def getFeatures(self, gameState, action):
     """
     Returns a counter of features for the state
     """
-    if gameState != None:
-        features = util.Counter()
-        successor = self.getSuccessor(gameState, action)
-        features['successorScore'] = self.getScore(successor)
-        return features
+    features = util.Counter()
+    successor = self.getSuccessor(gameState, action)
+    features['successorScore'] = self.getScore(successor)
+    return features
 
   def getWeights(self, gameState, action):
     """
     Normally, weights do not depend on the gamestate.  They can be either
     a counter or a dictionary.
     """
-    if gameState != None:
-        return {'successorScore': 1.0}
+    return {'successorScore': 1.0}
 
   def startEpisode(self):
       """
@@ -123,11 +91,21 @@ class Actions():
       self.lastAction = None
 
 class getOffensiveActions(Actions):
-    def __init__(self, agent, index, gameState):
+    def __init__(self, agent, index, gameState, actionFn = None, numTraining=100, epsilon=0.5, alpha=0.5, gamma=1):
         self.agent = agent
         self.index = index
         self.weights = util.Counter()
         self.qValues = {}
+        if actionFn == None:
+            actionFn = lambda state: state.getLegalActions()
+        self.actionFn = actionFn
+        self.episodesSoFar = 0
+        self.accumTrainRewards = 0.0
+        self.accumTestRewards = 0.0
+        self.numTraining = int(numTraining)
+        self.epsilon = float(epsilon)
+        self.alpha = float(alpha)
+        self.discount = float(gamma)
 
         #self.agent.distancer.getMazeDistances()
         self.counter = 0
@@ -144,7 +122,34 @@ class getOffensiveActions(Actions):
             if not gameState.hasWall(boundary, middlePoint):
                 self.boundary.append((boundary, middlePoint))
 
+    def doAction(self, state, action):
+        """
+            Called by inherited class when
+            an action is taken in a state
+        """
+        self.lastState = state
+        self.lastAction = action
 
+    def getAction(self, state):
+        """
+          Compute the action to take in the current state.  With
+          probability self.epsilon, we should take a random action and
+          take the best policy action otherwise.  Note that if there are
+          no legal actions, which is the case at the terminal state, you
+          should choose None as the action.
+
+          HINT: You might want to use util.flipCoin(prob)
+          HINT: To pick randomly from a list, use random.choice(list)
+        """
+        # Pick Action
+        legalActions = state.getLegalActions(state)
+        randomAct = random.choice(legalActions)
+
+        if len(legalActions) is 0:
+            return None
+
+        self.doAction(state, randomAct)
+        return randomAct
 
     def getValue(self, state):
         """
@@ -167,40 +172,39 @@ class getOffensiveActions(Actions):
         return actionReward
 
     def getFeatures(self, gameState, action):
-        if gameState != None:
-            features = util.Counter()
-            successor = self.getSuccessor(gameState, action)
+        features = util.Counter()
+        successor = self.getSuccessor(gameState, action)
 
         # Compute score from successor state
-            features['successorScore'] = self.agent.getScore(successor)
+        features['successorScore'] = self.agent.getScore(successor)
 
         # get current position of the agent
-            currentPosition = successor.getAgentState(self.index).getPosition()
+        currentPosition = successor.getAgentState(self.index).getPosition()
 
         # compute the distance to nearest boundary
-            currentDistance = self.agent.getMazeDistance(currentPosition, self.boundary[0])
+        currentDistance = self.agent.getMazeDistance(currentPosition, self.boundary[0])
 
-            for pos in range(len(self.boundary)):
-                distance = self.agent.getMazeDistance(currentPosition, self.boundary[pos])
-                if (currentDistance > distance):
-                    currentDistance = distance
-            features['nearBoundary'] = currentDistance
+        for pos in range(len(self.boundary)):
+            distance = self.agent.getMazeDistance(currentPosition, self.boundary[pos])
+            if (currentDistance > distance):
+                currentDistance = distance
+        features['nearBoundary'] = currentDistance
 
-            features['carrying'] = successor.getAgentState(self.index).numCarrying
+        features['carrying'] = successor.getAgentState(self.index).numCarrying
 
         #compute the nearest food
-            foodCount = self.agent.getFood(successor).asList()
-            if len(foodCount) > 0:
-                currentFoodDis = self.agent.getMazeDistance(currentPosition, foodCount[0])
-                for food in foodCount:
-                    disFood = self.agent.getMazeDistance(currentPosition, food)
-                    if (disFood < currentFoodDis):
-                        currentFoodDis = disFood
-                features['nearFood'] = currentFoodDis
+        foodCount = self.agent.getFood(successor).asList()
+        if len(foodCount) > 0:
+            currentFoodDis = self.agent.getMazeDistance(currentPosition, foodCount[0])
+            for food in foodCount:
+                disFood = self.agent.getMazeDistance(currentPosition, food)
+                if (disFood < currentFoodDis):
+                    currentFoodDis = disFood
+            features['nearFood'] = currentFoodDis
 
         #compute the nearest capsule
         #compute the closet ghost
-            return features
+        return features
 
     def getWeights(self, gameState, action):
         successor = self.getSuccessor(gameState, action)
@@ -251,24 +255,23 @@ class getOffensiveActions(Actions):
         Should return Q(state,action) = w * featureVector
         where * is the dotProduct operator
         """
-        if state != None:
-            finalValue = 0
-            for key in self.getFeatures(state, action).keys():
-                finalValue += self.weights[key] * self.getFeatures(state, action)[key]
+        finalValue = 0
+        for key in self.getFeatures(state, action).keys():
+            finalValue += self.weights[key] * self.getFeatures(state, action)[key]
 
-            return finalValue
+        return finalValue
 
     def update(self, gameState, action, nextState, reward):
         """
         Should update your weights based on transition
         """
-        if gameState != None:
-            self.discount = 0.8
-            self.alpha = 0.2
-            self.reward = reward
-            correction = (self.reward + (self.discount * self.getValue(nextState))) - self.getQValue(gameState, action)
-            for key in self.getFeatures(gameState, action).keys():
-                self.weights[key] = self.weights[key] + self.alpha * correction * self.getFeatures(gameState, action)[key]
+        self.discount = 0.8
+        self.alpha = 0.2
+        self.reward = reward
+        correction = (self.reward + (self.discount * self.getValue(nextState))) - self.getQValue(gameState, action)
+        print correction
+        for key in self.getFeatures(gameState, action).keys():
+            self.weights[key] = self.weights[key] + self.alpha * correction * self.getFeatures(gameState, action)[key]
 
 
     def observationFunction(self, state):
@@ -307,7 +310,7 @@ class getOffensiveActions(Actions):
         self.update(state, action, nextState, deltaReward)
 
     def chooseAction(self, gameState):
-        start = time.time()
+        #start = time.time()
 
         # Get valid actions. Randomly choose a valid one out of the best (if best is more than one)
         # All possible paths
@@ -323,6 +326,7 @@ class getOffensiveActions(Actions):
 
             #self.simulation(2, gameState.generateSuccessor(self.agent.index, a), 0.7)
         self.startEpisode()
+        self.observationFunction(gameState)
         self.final(gameState)
             #feasible.append(value)
 
@@ -335,9 +339,16 @@ class getOffensiveActions(Actions):
         # call the super-class final method
         deltaReward = 1
         self.observeTransition(self.lastState, self.lastAction, state, deltaReward)
+        self.stopEpisode()
 
-
-
+    def stopEpisode(self):
+        """
+          Called by environment when episode is done
+        """
+        if self.episodesSoFar >= self.numTraining:
+            # Take off the training wheels
+            self.epsilon = 0.0  # no exploration
+            self.alpha = 0.0  # no learning
 
 class getDefensiveActions(Actions):
   def __init__(self, agent, index, gameState):
@@ -382,13 +393,13 @@ class Attacker(CaptureAgent):
     self.OffenceStatus = getOffensiveActions(self, self.index, gameState)
 
   def chooseAction(self, gameState):
-      self.enemies = self.getOpponents(gameState)
-      invaders = [a for a in self.enemies if gameState.getAgentState(a).isPacman]
+      #self.enemies = self.getOpponents(gameState)
+      #invaders = [a for a in self.enemies if gameState.getAgentState(a).isPacman]
 
       #if self.getScore(gameState) >= 13:
       #    return self.DefenceStatus.chooseAction(gameState)
       #else:
-      return self.OffenceStatus.chooseAction(gameState)
+      self.OffenceStatus.chooseAction(gameState)
       #random.choice(gameState.deepCopy().getLegalActions(self.index))
       #self.enemies = self.getOpponents(gameState)
       #invaders = [a for a in self.enemies if gameState.getAgentState(a).isPacman]
