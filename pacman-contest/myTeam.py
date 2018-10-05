@@ -328,6 +328,7 @@ class getOffensiveActions(Actions):
         self.startEpisode()
         a = self.getAction(gameState)
         self.observationFunction(gameState)
+        self.final(gameState)
         # self.getAction(gameState)
         # self.observationFunction(gameState)
         # self.final(gameState)
