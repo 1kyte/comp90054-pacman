@@ -276,6 +276,35 @@ class getOffensiveActions(Actions):
                 'distanceToEnemiesPacMan': 0, 'distanceToCapsule': -5,
                 'nearBoundary': 5-numOfCarrying*3, 'carrying': 350}
 
+    def getReward(self, gameState, action):
+        """
+          Return the reward of action
+          eat food = 1 point
+          carry food home = 100 * n point, n is number of carrying food
+          be caught = -10 * n point, n is number of carrying food
+        """
+
+        reward = 0
+        # successor = gameState.generateSuccessor(gameState, action)
+        successor = self.getSuccessor(gameState, action)
+        # currentCarrying = gameState.numCarring
+        currentCarrying = gameState.getAgentState(self.index).numCarrying
+        nextCarrying = successor.getAgentState(self.index).numCarrying
+        state = successor.getAgentState(self.index).isPacman
+        if state:
+            reward = reward + nextCarrying - currentCarrying
+        else:
+            # currentPos = gameState.getPosition()
+            currentPos = gameState.getAgentState(self.index).getPosition()
+            nextPos = successor.getAgentState(self.index).getPosition()
+            move = self.agent.getMazeDistance(currentPos, nextPos)
+            if move > 1:
+                reward = -10 * currentCarrying
+            else:
+                reward = 100 * currentCarrying
+        print "reward",reward
+        return 0
+
     def getQValue(self, state, action):
         """
         Should return Q(state,action) = w * featureVector
@@ -288,13 +317,13 @@ class getOffensiveActions(Actions):
         # return self.weights*self.getFeatures(state, action)
         return finalValue
 
-    def update(self, gameState, action, nextState, reward):
+    def update(self, gameState, action, nextState):
         """
         Should update your weights based on transition
         """
         self.discount = 0.8
         self.alpha = 0.2
-        self.reward = reward
+        self.reward = self.getReward(gameState,action)
         a = self.getValue(nextState)
         b = self.getQValue(gameState, action)
         correction = (self.reward + (self.discount * self.getValue(nextState))) - self.getQValue(gameState, action)
@@ -315,8 +344,8 @@ class getOffensiveActions(Actions):
             The simulation should somehow ensure this is called
         """
         if not self.lastState is None:
-            reward = 1
-            self.observeTransition(self.lastState, self.lastAction, state, reward)
+            # reward = 1
+            self.observeTransition(self.lastState, self.lastAction, state)
         return state
 
     def getLegalActions(self, state):
@@ -334,7 +363,7 @@ class getOffensiveActions(Actions):
         self.actionFn = actionFn
 
 
-    def observeTransition(self, state, action, nextState, deltaReward):
+    def observeTransition(self, state, action, nextState):
         """
             Called by environment to inform agent that a transition has
             been observed. This will result in a call to self.update
@@ -342,7 +371,7 @@ class getOffensiveActions(Actions):
 
             NOTE: Do *not* override or call this function
         """
-        self.update(state, action, nextState, deltaReward)
+        self.update(state, action, nextState)
 
     def chooseAction(self, gameState):
         #start = time.time()
@@ -358,6 +387,8 @@ class getOffensiveActions(Actions):
         # self.observationFunction(gameState)
         # self.final(gameState)
             #feasible.append(value)
+
+        # return (a,self.weights)
         return a
         #bestAction = max(feasible)
         #possibleChoice = filter(lambda x: x[0] == bestAction, zip(feasible, actions))
@@ -366,8 +397,8 @@ class getOffensiveActions(Actions):
     def final(self, state):
         "Called at the end of each game."
         # call the super-class final method
-        deltaReward = 1
-        self.observeTransition(self.lastState, self.lastAction, state, deltaReward)
+        # deltaReward = 1
+        self.observeTransition(self.lastState, self.lastAction, state)
         self.stopEpisode()
 
     def stopEpisode(self):
@@ -457,6 +488,9 @@ class Attacker(CaptureAgent):
       #    return self.DefenceStatus.chooseAction(gameState)
       #else:
       # self.OffenceStatus.getAction(gameState)
+
+      # a, self.weights = self.OffenceStatus.chooseAction(gameState)
+      # return a
       return self.OffenceStatus.chooseAction(gameState)
       # self.OffenceStatus.final(gameState)
       #random.choice(gameState.deepCopy().getLegalActions(self.index))
