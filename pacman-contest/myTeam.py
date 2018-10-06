@@ -49,20 +49,13 @@ def createTeam(firstIndex, secondIndex, isRed,
 class Actions():
 
   def getSuccessor(self, gameState, action):
-      if gameState != None:
-        successor = gameState.generateSuccessor(self.index, action)
-        pos = successor.getAgentState(self.index).getPosition()
-        if pos != nearestPoint(pos):
+    successor = gameState.generateSuccessor(self.index, action)
+    pos = successor.getAgentState(self.index).getPosition()
+    if pos != nearestPoint(pos):
           # Only half a grid position was covered
-            return successor.generateSuccessor(self.index, action)
-        else:
-            return successor
-
-
-  def evaluate(self, gameState, action):
-    features = self.getFeatures(gameState, action)
-    weights = self.getWeights(gameState, action)
-    return features * weights
+        return successor.generateSuccessor(self.index, action)
+    else:
+        return successor
 
   def getFeatures(self, gameState, action):
     """
@@ -73,7 +66,7 @@ class Actions():
     features['successorScore'] = self.getScore(successor)
     return features
 
-  def getWeights(self, gameState, action):
+  def getValues(self, gameState, action):
     """
     Normally, weights do not depend on the gamestate.  They can be either
     a counter or a dictionary.
@@ -192,7 +185,7 @@ class getOffensiveActions(Actions):
             distance = self.agent.getMazeDistance(currentPosition, self.boundary[pos])
             if (currentDistance > distance):
                 currentDistance = distance
-        # features['nearBoundary'] = currentDistance
+        features['nearBoundary'] = currentDistance
 
         features['carrying'] = successor.getAgentState(self.index).numCarrying
 
@@ -204,13 +197,55 @@ class getOffensiveActions(Actions):
                 disFood = self.agent.getMazeDistance(currentPosition, food)
                 if (disFood < currentFoodDis):
                     currentFoodDis = disFood
-            features['nearFood'] = currentFoodDis
+            features['nearFood'] = float(currentFoodDis)/ (gameState.getWalls().width * gameState.getWalls().height)
 
         #compute the nearest capsule
+        capsuleList = self.agent.getCapsules(successor)
+        if len(capsuleList) > 0:
+            minCapsuleDistance = 99999
+            for c in capsuleList:
+                distance = self.agent.getMazeDistance(currentPosition, c)
+                if distance < minCapsuleDistance:
+                    minCapsuleDistance = distance
+            features['distanceToCapsule'] = minCapsuleDistance
+        else:
+            features['distanceToCapsule'] = 0
+
         #compute the closet ghost
+        opponentsState = []
+        for i in self.agent.getOpponents(successor):
+            opponentsState.append(successor.getAgentState(i))
+        visible = filter(lambda x: not x.isPacman and x.getPosition() != None, opponentsState)
+        if len(visible) > 0:
+            positions = [agent.getPosition() for agent in visible]
+            closest = min(positions, key=lambda x: self.agent.getMazeDistance(currentPosition, x))
+            closestDist = self.agent.getMazeDistance(currentPosition, closest)
+            if closestDist <= 5:
+                # print(CurrentPosition,closest,closestDist)
+                features['GhostDistance'] = closestDist
+
+        else:
+            probDist = []
+            for i in self.agent.getOpponents(successor):
+                probDist.append(successor.getAgentDistances()[i])
+                features['GhostDistance'] = min(probDist)
+
+        enemiesPacMan = [successor.getAgentState(i) for i in self.agent.getOpponents(successor)]
+        Range = filter(lambda x: x.isPacman and x.getPosition() != None, enemiesPacMan)
+        if len(Range) > 0:
+            positions = [agent.getPosition() for agent in Range]
+            closest = min(positions, key=lambda x: self.agent.getMazeDistance(currentPosition, x))
+            closestDist = self.agent.getMazeDistance(currentPosition, closest)
+            if closestDist < 4:
+                # print(CurrentPosition,closest,closestDist)
+                features['distanceToEnemiesPacMan'] = closestDist
+        else:
+            features['distanceToEnemiesPacMan'] = 0
+
+        features.divideAll(10.0)
         return features
 
-    def getWeights(self, gameState, action):
+    def getValues(self, gameState, action):
         successor = self.getSuccessor(gameState, action)
         numOfCarrying = successor.getAgentState(self.index).numCarrying
         opponents = [successor.getAgentState(i) for i in self.agent.getOpponents(successor)]
@@ -219,50 +254,34 @@ class getOffensiveActions(Actions):
             for agent in visible:
                 if agent.scaredTimer > 0:
                     if agent.scaredTimer > 12:
-                        # return {'successorScore': 0, 'nearFood': 0, 'nearBoundary': 0, 'carrying': 0}
-                        return {'successorScore': 0, 'nearFood': 0,  'carrying': 0}
+                        return {'successorScore': 110, 'nearFood': -10, 'distanceToEnemiesPacMan': 0,
+                                'GhostDistance': -1, 'distanceToCapsule': 0, 'nearBoundary': 10-3*numOfCarrying,
+                                'carrying': 350}
 
                     elif 6 < agent.scaredTimer < 12:
-                        # return {'successorScore': 0, 'nearFood': 0, 'nearBoundary': 0, 'carrying': 0}
-                        return {'successorScore': 0, 'nearFood': 0, 'carrying': 0}
+                        return {'successorScore': 110 + 5 * numOfCarrying, 'nearFood': -5,
+                                'distanceToEnemiesPacMan': 0,
+                                'GhostDistance': -1, 'distanceToCapsule': -10, 'nearBoundary': -5-4*numOfCarrying,
+                                'carrying': 100}
 
                 # Visible and not scared
                 else:
-                    # return {'successorScore': 0, 'nearFood': 0, 'nearBoundary': 0, 'carrying': 0}
-                    return {'successorScore': 0, 'nearFood': 0, 'carrying': 0}
+                    return {'successorScore': 110, 'nearFood': -10, 'distanceToEnemiesPacMan': 0,
+                            'GhostDistance': 20, 'distanceToCapsule': -15, 'nearBoundary': -15,
+                            'carrying': 0}
 
-        # Did not see anything
         self.counter += 1
         # print("Counter ",self.counter)
-        # return {'successorScore': 0, 'nearFood': 0, 'nearBoundary': 0, 'carrying': 0}
-        return {'successorScore': 0, 'nearFood': 0, 'carrying': 0}
-    def simulation(self, depth, gameState, decay):
-        new_state = gameState.deepCopy()
-        if depth == 0:
-            result_list = []
-            action = random.choice(new_state.getLegalActions(self.index))
-            next_state = new_state.generateSuccessor(self.index, action)
-            result_list.append(self.evaluate(next_state, Directions.STOP))
-            return max(result_list)
-
-        # Get valid actions
-        result_list = []
-        actions = new_state.getLegalActions(self.index)
-
-        # Randomly chooses a valid action
-        for a in actions:
-            # Compute new state and update depth
-            next_state = new_state.generateSuccessor(self.index, a)
-            result_list.append(
-                self.evaluate(next_state, Directions.STOP) + decay * self.simulation(depth - 1, next_state, decay))
-        return max(result_list)
+        return {'successorScore': 1000 + numOfCarrying * 3.5, 'nearFood': -7, 'GhostDistance': 0,
+                'distanceToEnemiesPacMan': 0, 'distanceToCapsule': -5,
+                'nearBoundary': 5-numOfCarrying*3, 'carrying': 350}
 
     def getQValue(self, state, action):
         """
         Should return Q(state,action) = w * featureVector
         where * is the dotProduct operator
         """
-        self.weights = self.getWeights(state, action)
+        #self.weights = self.getWeights(state, action)
         finalValue = 0
         for key in self.getFeatures(state, action).keys():
             finalValue += self.weights[key] * self.getFeatures(state, action)[key]
@@ -279,7 +298,7 @@ class getOffensiveActions(Actions):
         a = self.getValue(nextState)
         b = self.getQValue(gameState, action)
         correction = (self.reward + (self.discount * self.getValue(nextState))) - self.getQValue(gameState, action)
-        # print correction
+        #print correction
         for key in self.getFeatures(gameState, action).keys():
             self.weights[key] = self.weights[key] + self.alpha * correction * self.getFeatures(gameState, action)[key]
 
@@ -332,16 +351,6 @@ class getOffensiveActions(Actions):
         # All possible paths
         #actions = gameState.getLegalActions(self.agent.index)
         #actions.remove(Directions.STOP)
-
-        #feasible = []
-        #for a in actions:
-            #value = 0
-            # for i in range(0, 10):
-            #     value += self.randomSimulation1(2, new_state, 0.8) / 10
-            # fvalues.append(value)
-
-            #self.simulation(2, gameState.generateSuccessor(self.agent.index, a), 0.7)
-
         a = self.getAction(gameState)
         self.observationFunction(gameState)
         self.final(gameState)
@@ -402,7 +411,7 @@ class getDefensiveActions(Actions):
 
     return random.choice(actions)
 
-    def getWeights(self, gameState, action):
+  def getWeights(self, gameState, action):
         """
             The weights and features contain:
                 1. the distance between ghost and boundary;
@@ -415,7 +424,7 @@ class getDefensiveActions(Actions):
 
         # return
 
-    def getFeatures(self, gameState, action):
+  def getFeatures(self, gameState, action):
         features = util.Counter()
 
         # get the distance to boundary
