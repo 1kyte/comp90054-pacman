@@ -303,7 +303,7 @@ class getOffensiveActions(Actions):
             else:
                 reward = 100 * currentCarrying
         print "reward",reward
-        return 0
+        return reward
 
     def getQValue(self, state, action):
         """
@@ -488,7 +488,7 @@ class Attacker(CaptureAgent):
       #    return self.DefenceStatus.chooseAction(gameState)
       #else:
       # self.OffenceStatus.getAction(gameState)
-
+      #
       # a, self.weights = self.OffenceStatus.chooseAction(gameState)
       # return a
       return self.OffenceStatus.chooseAction(gameState)
