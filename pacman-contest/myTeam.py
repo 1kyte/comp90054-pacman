@@ -617,8 +617,10 @@ class getDefensiveActions(Actions):
     self.protectedFoods = self.getFoodPosition(gameState)
     self.isAttacker = False
     self.t = None
+    self.target = None
     self.initPos = gameState.getAgentState(self.index).getPosition()
     self.weights = {'distToBound': 5, 'distToEnemy': 5, 'distToCapsule': 2}  # 'distToTarget': 5,
+    self.chase=False
     self.startEpisode()
 
     if self.agent.red:
@@ -645,7 +647,7 @@ class getDefensiveActions(Actions):
   def chooseAction(self, gameState):
       x,y = gameState.getAgentState(self.index).getPosition()
       if not self.agent.red:
-        if x<=29:
+        if x<=30:
             action = self.getAction(gameState)
             self.observationFunction(gameState)
             self.final(gameState)
@@ -673,30 +675,15 @@ class getDefensiveActions(Actions):
       if not self.lastAction == None:
           if reversed in legalActionList and len(legalActionList) > 1:
               legalActionList.remove(reversed)
-      # isHeads = util.flipCoin(self.epsilon)
+
       randomAct = random.choice(legalActionList)
-
-      # print 'legalActionList',legalActionList
-      # print 'reversed',reversed
-      # print 'isHeads',isHeads
-
       if len(legalActionList) is 0:
           return None
 
-      # if isHeads:
-      #     self.doAction(gameState, randomAct)
-      #     print 'isHeads',isHeads
-      #     return randomAct
-      # else:
-      #     print 'isHeads', isHeads
       policyAct = self.getPolicy(gameState)
       if policyAct is None:
           policyAct = randomAct
           # if the ghost become pacman in the next step this action should be removed
-          # successor = self.getSuccessor(gameState, policyAct)
-          # notavailable = successor.getAgentState(self.index).isPacman
-          # while notavailable:
-          #   policyAct = random.choice(legalActionList)
       self.doAction(gameState, policyAct)
       return policyAct
 
@@ -716,10 +703,7 @@ class getDefensiveActions(Actions):
 
       maxLegalActions = state.getLegalActions(self.agent.index)
       maxLegalActions.remove(Directions.STOP)
-      maxReversed = Directions.REVERSE[state.getAgentState(self.agent.index).configuration.direction]
-      if not self.lastAction == None:
-          if maxReversed in maxLegalActions and len(maxLegalActions) > 1:
-              maxLegalActions.remove(maxReversed)
+
       d = 9999999
       for action in maxLegalActions:
           successor = self.getSuccessor(state, action)
@@ -732,7 +716,7 @@ class getDefensiveActions(Actions):
             else:
                 inBoundary = True
           else:
-              if sx < bx:
+              if sx <bx:
                   inBoundary = False
               else:
                   inBoundary = True
@@ -742,14 +726,30 @@ class getDefensiveActions(Actions):
           if inBoundary:
               enemies = [currentState.getAgentState(i) for i in self.agent.getOpponents(state)]
               visible = filter(lambda enemy: enemy.isPacman and enemy.getPosition() != None, enemies)
+              farEnemies = [currentState.getAgentState(i) for i in self.agent.getOpponents(successor)]
+              farVisible = filter(lambda enemy: enemy.isPacman and enemy.getPosition() != None, farEnemies)
               if len(visible)>0:
+                self.chase = False
+                self.target = None
                 if state.getAgentState(self.index).scaredTimer == 0:
 
                     for agent in visible:
                         dis = self.agent.getMazeDistance(successorPos,agent.getPosition())
                         if successorPos == agent.getPosition():
+                            self.chase = False
+                            self.target = None
                             return action
                         elif dis<d:
+                            # self.chase = True
+                            self.chase = False
+                            self.target = None
+                            d = dis
+                            maxAction = action
+                elif len(farVisible)>0:
+                    for agent in farVisible:
+                        dis = self.agent.getMazeDistance(successorPos,agent.getPosition())
+                        if dis<d:
+                            self.chase = True
                             d = dis
                             maxAction = action
                 else:
@@ -777,19 +777,38 @@ class getDefensiveActions(Actions):
 
   def getTempTarget(self,state):
       foodList = self.agent.getFoodYouAreDefending(state)
+      # self.protectedFoods = self.getFoodPosition(state)
+      # foods = []
+      # for x in range(foodList.width):
+      #     for y in range(foodList.height):
+      #         if foodList[x][y]:
+      #             foods.append((x, y))
       selfPos = state.getAgentState(self.index).getPosition()
-      mindis = 99999
       thePos = None
       for food in self.protectedFoods:
           x,y = food
           if not foodList[x][y]:
-              return (x,y)
+              self.target = (x,y)
+              self.chase = True
+              self.protectedFoods = self.getFoodPosition(state)
+              return self.target
           else:
-              dis = self.agent.getMazeDistance(food,selfPos)
-              if dis<mindis:
-                  mindis = dis
-                  thePos = food
+              if selfPos == self.target:
+                  self.chase = False
+
+              if self.chase:
+                  if not self.target==None:
+                      return self.target
+                  else:
+                      thePos = self.boundary[len(self.boundary) / 2]
+              else:
+                  thePos = self.boundary[len(self.boundary)/2]
+
+              if selfPos == self.boundary[len(self.boundary)/2]:
+                  self.protectedFoods = self.getFoodPosition(state)
+
       return thePos
+
 
 
   def usualPolicy(self,state,maxActionValue,action,val,maxAction,successor):
