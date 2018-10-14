@@ -1,10 +1,9 @@
-# UoM COMP90054 AI Planning for Autonomy - Pacman Project Template
+# UoM COMP90054 AI Planning for Autonomy - Pacman Project
 
-This repository is used by students to fork their own repository to work for the team submission.
+This project uses two method to implement the AI algorithm, they are MCST and approximate Q learning seperately.
 
-You must FORK **privately** this repository and change slightly the name to **comp90054-pacman-project-\<your student number\>**
+More details of these two algorithms are in Wiki, please check the link.
 
-Please follow the instructions in LMS.
-
-Hope you enjoy this project!
+Group name: Triple6
+Contributors: Xu Chen, Siyu Zhang, Xunwan Wang
 
