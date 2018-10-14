@@ -174,7 +174,7 @@ class attackerAction():
             weights['distToCapsule'] = -5
             # It becomes more dangerous as the Pacman goes further
             # However, return home without food is meaningless
-            weights['distToHome'] = -1 - successor.getAgentState(self.index).numCarrying
+            weights['distToHome'] = 5 - successor.getAgentState(self.index).numCarrying * 3
             # Enemy position is ignored
             weights['distToGhost'] = 0
             # To make the agent eat food, a huge weight should be assigned to 'foodCarrying'
@@ -193,7 +193,7 @@ class attackerAction():
                     weights['distToGhost'] = 20
                     # Return home gets higher priority
                     # More food the Pacman is carrying, more weight should be given to return
-                    weights['distToHome'] = 5 * (-1 - successor.getAgentState(self.index).numCarrying)
+                    weights['distToHome'] = 5 * (5 - successor.getAgentState(self.index).numCarrying * 3)
                 # If the enemy is scared
                 else:
                     # Don't need to return
@@ -591,7 +591,7 @@ class Attacker(CaptureAgent):
 
 
     def chooseAction(self, gameState):
-        if self.getScore(gameState) > 0 and not gameState.getAgentState(self.index).isPacman:
+        if self.getScore(gameState) > 5 and not gameState.getAgentState(self.index).isPacman:
             return self.defendStatus.chooseAction(gameState)
         else:
             return self.attackStatus.chooseAction(gameState)
