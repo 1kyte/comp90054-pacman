@@ -1,4 +1,4 @@
-# myTeam2.py
+# myTeam.py
 # ---------
 # Licensing Information:  You are free to use or extend these projects for
 # educational purposes provided that (1) you do not distribute or publish
@@ -16,7 +16,6 @@ from captureAgents import CaptureAgent
 import random, time, util
 from game import Directions
 import game
-
 
 #################
 # Team creation #
@@ -168,7 +167,7 @@ class attackerAction():
         # If there is no visble enemy:
         if len(visibleGhost) == 0:
             # The pacman should try to get close to the food and capsule
-            weights['distToFood'] = -20
+            weights['distToFood'] = -10
             weights['distToCapsule'] = -5
             # It becomes more dangerous as the Pacman goes further
             # However, return home without food is meaningless
@@ -186,23 +185,23 @@ class attackerAction():
                     # Still try to get close to food, but less priority
                     # Concern more about the capsule and enemy distance
                     weights['distToFood'] = -5
-                    weights['foodCarrying'] = 5
+                    weights['foodCarrying'] = 10
                     weights['distToCapsule'] = -15
                     weights['distToGhost'] = 20
                     # Return home gets higher priority
                     # More food the Pacman is carrying, more weight should be given to return
-                    weights['distToHome'] = 5 * (5 - successor.getAgentState(self.index).numCarrying * 3)
+                    weights['distToHome'] = -1 - successor.getAgentState(self.index).numCarrying * 3
                 # If the enemy is scared
                 else:
                     # Don't need to return
-                    weights['distToHome'] = 0
+                    weights['distToHome'] = 5 - successor.getAgentState(self.index).numCarrying * 3
                     # Ignore the ghost
-                    weights['distToGhost'] = -10
+                    weights['distToGhost'] = -100
                     # Ignore the capsule
                     weights['distToCapsule'] = 0
                     # Try to eat food
                     weights['distToFood'] = -10
-                    weights['foodCarrying'] = 1000
+                    weights['foodCarrying'] = 300
 
         return weights
 
@@ -345,10 +344,13 @@ class defenderAction():
 
     def getWeights(self, gameState, action):
         weights = util.Counter()
-
+        successor = gameState.generateSuccessor(self.index, action)
         weights['status'] = 1
         weights['distToDefend'] = -10
-        weights['distToPacman'] = -30
+        if gameState.getAgentState(self.index).scaredTimer > 0:
+            weights['distToPacman'] = 20
+        else:
+            weights['distToPacman'] = -30
 
         return weights
 
@@ -492,7 +494,10 @@ class defenderAction2():
 
         weights['status'] = 1
         weights['distToDefend'] = -10
-        weights['distToPacman'] = -30
+        if gameState.getAgentState(self.index).scaredTimer > 0:
+            weights['distToPacman'] = 20
+        else:
+            weights['distToPacman'] = -30
 
         return weights
 
