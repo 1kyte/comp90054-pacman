@@ -245,7 +245,7 @@ class attackerAction():
         actions.remove(Directions.STOP)
         simuResult = []
         for action in actions:
-            value = self.simulation(3, gameState.generateSuccessor(self.agent.index, action), 0.5)
+            value = self.simulation(2, gameState.generateSuccessor(self.agent.index, action), 0.8)
             simuResult.append(value)
         maxResult = max(simuResult)
         bestActions = filter(lambda x: x[0] == maxResult, zip(simuResult, actions))
